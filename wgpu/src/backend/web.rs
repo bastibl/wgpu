@@ -1012,7 +1012,23 @@ impl crate::Context for Context {
         MakeSendFuture<wasm_bindgen_futures::JsFuture, fn(JsFutureResult) -> Option<crate::Error>>;
 
     fn init(_backends: wgt::Backends) -> Self {
-        Context(web_sys::window().unwrap().navigator().gpu())
+        #[wasm_bindgen]
+        extern "C" {
+            type Global;
+
+            #[wasm_bindgen(method, getter, js_name = WorkerGlobalScope)]
+            fn worker(this: &Global) -> JsValue;
+        }
+
+        let global: Global = js_sys::global().unchecked_into();
+
+        if !global.window().is_undefined() {
+            Context(global.unchecked_into::<web_sys::Window>().navigator().gpu())
+        } else if !global.worker().is_undefined() {
+            Context(global.unchecked_into::<web_sys::WorkerGlobalScope>().navigator().gpu())
+        } else {
+            panic!("Only supported in a browser or web worker");
+        }
     }
 
     fn instance_create_surface(
